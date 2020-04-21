@@ -16,6 +16,7 @@
 #include "stats.h"
 #include "topology_info.h"
 #include "cheetah_manager.h"
+#include "magic_server.h"
 
 #include <cstring>
 
@@ -28,7 +29,7 @@
 
 #define VERBOSE 0
 
-const char * ModeledString(Core::MemModeled modeled) {
+const char * ModeledString(Core::MemModeled modeled) { 
    switch(modeled)
    {
       case Core::MEM_MODELED_NONE:           return "none";
@@ -264,6 +265,9 @@ void Core::accessMemoryFast(bool icache, mem_op_t mem_op_type, IntPtr address)
 {
    if (m_cheetah_manager && icache == false)
       m_cheetah_manager->access(mem_op_type, address);
+   
+  //Raul
+  // both for fast and inj enters here -> but only for icache
 
    SubsecondTime latency = getMemoryManager()->coreInitiateMemoryAccessFast(icache, mem_op_type, address);
 
@@ -356,7 +360,7 @@ Core::initiateMemoryAccess(MemComponent::component_t mem_component,
       {
          curr_size = cache_block_size - (curr_offset);
       }
-
+	//NEVER enter by normal operation
       LOG_PRINT("Start InitiateSharedMemReq: ADDR(0x%x), offset(%u), curr_size(%u)", curr_addr_aligned, curr_offset, curr_size);
 
       if (m_cheetah_manager)
@@ -476,10 +480,16 @@ Core::accessMemory(lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr d_add
       data_buffer = NULL; // initiateMemoryAccess's data is not used
    }
 
+	  //std::cout << "initiateMemoryAccess by " << d_addr << std::endl;		//nothing
    if (modeled == MEM_MODELED_NONE)
+   {
       return makeMemoryResult(HitWhere::UNKNOWN, SubsecondTime::Zero());
-   else
+   }
+   else		
+   {
       return initiateMemoryAccess(MemComponent::L1_DCACHE, lock_signal, mem_op_type, d_addr, (Byte*) data_buffer, data_size, modeled, eip, now);
+	  //HERE
+   }
 }
 
 

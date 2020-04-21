@@ -15,6 +15,7 @@ class CacheSetRandom : public CacheSet
 
    private:
       Random m_rand;
+      UInt32 approx_margin;	//RAUL
 };
 
 #endif /* CACHE_SET_RANDOM_H */

@@ -34,6 +34,7 @@ class CacheSet
       UInt32 m_associativity;
       UInt32 m_blocksize;
       Lock m_lock;
+	  bool m_approx_flag;		//RAUL
 
    public:
 

@@ -6,6 +6,8 @@
 #include "core_manager.h"
 #include "thread.h"
 #include "thread_manager.h"
+#include <iostream>
+#include <fstream>
 
 static UInt64 handleMagic(thread_id_t thread_id, UInt64 cmd, UInt64 arg0 = 0, UInt64 arg1 = 0)
 {
@@ -28,6 +30,18 @@ UInt64 handleMagicInstruction(thread_id_t thread_id, UInt64 cmd, UInt64 arg0, UI
    case SIM_CMD_ROI_END:
    case SIM_CMD_MHZ_SET:
    case SIM_CMD_MARKER:
+   {
+      // if(arg0 == 007)
+      // {
+      //    std::ofstream raul_ofs;
+      //    raul_ofs.open("approx_vars.txt",std::ofstream::out | std::ofstream::app);
+      //    raul_ofs << arg1 << std::endl;
+      //    raul_ofs.close();
+      //    //std::cout  << "the value of arg1 is: " << arg1 << std::endl;
+      // }
+         
+
+   }
    case SIM_CMD_NAMED_MARKER:
    case SIM_CMD_USER:
    case SIM_CMD_INSTRUMENT_MODE:
@@ -47,6 +61,13 @@ UInt64 handleMagicInstruction(thread_id_t thread_id, UInt64 cmd, UInt64 arg0, UI
       return Sim()->getThreadManager()->getNumThreads();
    case SIM_CMD_IN_SIMULATOR:
       return 0;
+   case SIM_CMD_ADD_APPROX_ADDRS:
+   case SIM_CMD_DEL_APPROX_ADDRS:
+   case SIM_CMD_ADD_OP:
+   case SIM_CMD_ADD_CNT:
+   case SIM_CMD_MUL_OP:
+   case SIM_CMD_MUL_CNT:
+		return handleMagic(thread_id, cmd, arg0, arg1);		
    default:
       LOG_PRINT_WARNING_ONCE("Encountered unknown magic instruction cmd(%u)", cmd);
       return 1;

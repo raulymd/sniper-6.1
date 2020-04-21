@@ -7,6 +7,8 @@
 #include "performance_model.h"
 #include "shmem_perf_model.h"
 #include "pr_l1_pr_l2_dram_directory_msi/shmem_msg.h"
+#include "magic_server.h"
+#include "simulator.h"
 
 void MemoryManagerNetworkCallback(void* obj, NetPacket packet);
 
@@ -57,18 +59,33 @@ class MemoryManagerBase
          // Emulate fast interface by calling into slow interface
          SubsecondTime initial_time = getCore()->getPerformanceModel()->getElapsedTime();
          getShmemPerfModel()->setElapsedTime(ShmemPerfModel::_USER_THREAD, initial_time);
-
+		//Raul
+		IntPtr mem_address = address - (address % getCacheBlockSize());	//block address
+		 //std::cout << mem_address << std::endl;
+		//main -> rubbish (just executed before all approx variables defined)  
+		//if(mem_op_type == Core::WRITE)	Sim()->getMagicServer()->reset_cnters((UInt64)mem_address,getCacheBlockSize());
          coreInitiateMemoryAccess(
                icache ? MemComponent::L1_ICACHE : MemComponent::L1_DCACHE,
                Core::NONE,
                mem_op_type,
-               address - (address % getCacheBlockSize()), 0,
+               mem_address, 0,		//address - (address % getCacheBlockSize())
                NULL, getCacheBlockSize(),
                Core::MEM_MODELED_COUNT_TLBTIME);
-
+		//if(mem_op_type == Core::READ)	Sim()->getMagicServer()->upsave_cnters((UInt64)mem_address,getCacheBlockSize());
+/*		
+   if(mem_op_type == Core::READ)
+   { 
+		if (Sim()->getMagicServer()->is_approx(mem_address))
+		{
+			std::cout << "address: " << address <<  " mem_address: " << mem_address << std::endl;
+			//Sim()->getMagicServer()->display_approx();
+		}
+	}		
+*/		
          // Get the final cycle time
          SubsecondTime final_time = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_USER_THREAD);
          SubsecondTime latency = final_time - initial_time;
+		 //std::cout << "latency: " << latency.getNS() << std::endl;
          return latency;
       }
 

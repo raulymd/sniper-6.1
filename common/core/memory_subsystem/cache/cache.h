@@ -11,6 +11,7 @@
 #include "log.h"
 #include "core.h"
 #include "fault_injection.h"
+#include <string>
 
 // Define to enable the set usage histogram
 //#define ENABLE_SET_USAGE_HIST
@@ -19,6 +20,12 @@ class Cache : public CacheBase
 {
    private:
       bool m_enabled;
+	  
+	//Raul added codes
+      core_id_t   Raul_core_id;
+      cache_t	Raul_cache_type;
+      String      Raul_name;
+
 
       // Cache counters
       UInt64 m_num_accesses;

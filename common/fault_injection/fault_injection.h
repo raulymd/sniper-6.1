@@ -8,7 +8,7 @@ class FaultInjector;
 
 class FaultinjectionManager
 {
-   private:
+   private: 
       enum fault_type_t {
          FAULT_TYPE_TOGGLE,
          FAULT_TYPE_SET0,
@@ -29,7 +29,9 @@ class FaultinjectionManager
 
       FaultInjector* getFaultInjector(UInt32 core_id, MemComponent::component_t mem_component);
 
-      void applyFault(Core *core, IntPtr read_address, UInt32 data_size, MemoryResult &memres, Byte *data, const Byte *fault);
+      void applyFault(Core *core, IntPtr read_address, UInt32 data_size, MemoryResult &memres, Byte *data,const Byte *fault);
+      //Raul_code
+      bool FaultApplied;
 };
 
 class FaultInjector
@@ -37,6 +39,7 @@ class FaultInjector
    protected:
       UInt32 m_core_id;
       MemComponent::component_t m_mem_component;
+
 
    public:
       FaultInjector(UInt32 core_id, MemComponent::component_t mem_component);

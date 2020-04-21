@@ -43,12 +43,16 @@ class CacheBase
          HASH_MOD,
          HASH_RNG1_MOD,
          HASH_RNG2_MOD,
+         HASH_PRIME_DIS,
+         HASH_XOR_MOD,
+         HASH_MER_MOD,
       };
 
       enum ReplacementPolicy
       {
          ROUND_ROBIN = 0,
          LRU,
+         LRU2,      //RAUL
          LRU_QBS,
          NRU,
          MRU,
@@ -72,6 +76,7 @@ class CacheBase
 
       // computed params
       UInt32 m_log_blocksize;
+      UInt32 m_log_num_sets;
 
    public:
       // constructors/destructors

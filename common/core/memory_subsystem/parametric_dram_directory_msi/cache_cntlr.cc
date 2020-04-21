@@ -9,6 +9,7 @@
 #include "hooks_manager.h"
 #include "cache_atd.h"
 #include "shmem_perf.h"
+#include "magic_server.h"
 
 #include <cstring>
 
@@ -114,12 +115,14 @@ CacheMasterCntlr::accessATDs(Core::mem_op_t mem_op_type, bool hit, IntPtr addres
 
 CacheMasterCntlr::~CacheMasterCntlr()
 {
+    
    delete m_cache;
    for(std::vector<ATD*>::iterator it = m_atds.begin(); it != m_atds.end(); ++it)
    {
       delete *it;
    }
 }
+
 
 CacheCntlr::CacheCntlr(MemComponent::component_t mem_component,
       String name,
@@ -206,6 +209,19 @@ CacheCntlr::CacheCntlr(MemComponent::component_t mem_component,
       m_prefetch_on_prefetch_hit = Sim()->getCfg()->getBoolArray("perf_model/" + cache_params.configName + "/prefetcher/prefetch_on_prefetch_hit", core_id);
 
    bzero(&stats, sizeof(stats));
+   
+   //Raul
+   registerStatsMetric(name, core_id, "approx-loads", &stats.approx_loads);
+   registerStatsMetric(name, core_id, "approx-stores", &stats.approx_stores);
+   registerStatsMetric(name, core_id, "approx-load-misses", &stats.approx_load_misses);
+   registerStatsMetric(name, core_id, "approx-store-misses", &stats.approx_store_misses);
+   registerStatsMetric(name, core_id, "approx-ratio", &stats.approx_ratio);
+   //Raul_2
+   registerStatsMetric(name, core_id, "approx-loads-2", &stats.approx_loads_2);
+   registerStatsMetric(name, core_id, "approx-stores-2", &stats.approx_stores_2);
+   registerStatsMetric(name, core_id, "approx-load-misses-2", &stats.approx_load_misses_2);
+   registerStatsMetric(name, core_id, "approx-store-misses-2", &stats.approx_store_misses_2);
+   registerStatsMetric(name, core_id, "approx-ratio-2", &stats.approx_ratio_2);      
 
    registerStatsMetric(name, core_id, "loads", &stats.loads);
    registerStatsMetric(name, core_id, "stores", &stats.stores);
@@ -323,6 +339,8 @@ CacheCntlr::processMemOpFromCore(
       bool count)
 {
    HitWhere::where_t hit_where = HitWhere::MISS;
+
+
 
    // Protect against concurrent access from sibling SMT threads
    ScopedLock sl_smt(m_master->m_smt_lock);
@@ -1502,7 +1520,7 @@ MYLOG("evict FLUSH %lx", evict_address);
                   home_node_id /* receiver */,
                   evict_address,
                   evict_buf, getCacheBlockSize(),
-                  HitWhere::UNKNOWN, NULL, thread_num);
+                  HitWhere::UNKNOWN, &m_dummy_shmem_perf, thread_num);
          }
          else
          {
@@ -1516,7 +1534,7 @@ MYLOG("evict INV %lx", evict_address);
                   home_node_id /* receiver */,
                   evict_address,
                   NULL, 0,
-                  HitWhere::UNKNOWN, NULL, thread_num);
+                  HitWhere::UNKNOWN, &m_dummy_shmem_perf, thread_num);
          }
       }
 
@@ -2065,9 +2083,14 @@ CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cach
       if (isPrefetch != Prefetch::OWN)
       {
          stats.stores++;
+         if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==0 )     stats.approx_stores++;
+         if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==1 )     stats.approx_stores_2++;         
          stats.stores_state[state]++;
+         
          if (! cache_hit || overlapping) {
             stats.store_misses++;
+            if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==0)      stats.approx_store_misses++;
+            if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==1)      stats.approx_store_misses_2++;            
             stats.store_misses_state[state]++;
             if (overlapping) stats.store_overlapping_misses++;
          }
@@ -2080,9 +2103,13 @@ CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cach
       if (isPrefetch != Prefetch::OWN)
       {
          stats.loads++;
+         if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==0)     stats.approx_loads++;
+         if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size) ==1)     stats.approx_loads_2++;         
          stats.loads_state[state]++;
          if (! cache_hit) {
             stats.load_misses++;
+            if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size)==0)      stats.approx_load_misses++; 
+            if(Sim()->getMagicServer()->approx_block_setnum((UInt64)address,m_cache_block_size)==1)      stats.approx_load_misses_2++;             
             stats.load_misses_state[state]++;
             if (overlapping) stats.load_overlapping_misses++;
          }

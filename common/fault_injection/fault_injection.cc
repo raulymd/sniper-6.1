@@ -3,12 +3,20 @@
 #include "simulator.h"
 #include "config.hpp"
 #include "log.h"
+#include "magic_server.h"
+#include "mem_component.h"
+#include "string.h"
+ 
+
 
 FaultinjectionManager *
-FaultinjectionManager::create()
+FaultinjectionManager::create() 
 {
    String s_type = Sim()->getCfg()->getString("fault_injection/type");
    String s_injector = Sim()->getCfg()->getString("fault_injection/injector");
+    
+   //std::cout << s_type << std::endl;
+   //std::cout << s_injector << std::endl;
 
    fault_type_t type;
    if (s_type == "toggle")
@@ -37,6 +45,8 @@ FaultinjectionManager::FaultinjectionManager(fault_type_t type, fault_injector_t
    : m_type(type)
    , m_injector(injector)
 {
+   //std::cout << "inside FaultinjectionManager constructor!" << std::endl;
+   FaultApplied = true;
 }
 
 FaultInjector *
@@ -49,47 +59,87 @@ FaultinjectionManager::getFaultInjector(UInt32 core_id, MemComponent::component_
       case FAULT_INJECTOR_RANDOM:
          return new FaultInjectorRandom(core_id, mem_component);
    }
-
    return NULL;
 }
 
 void
-FaultinjectionManager::applyFault(Core *core, IntPtr read_address, UInt32 data_size, MemoryResult &memres, Byte *data, const Byte *fault)
+FaultinjectionManager::applyFault(Core *core, IntPtr read_address, UInt32 data_size, MemoryResult &memres, Byte *data,const Byte *fault)
 {
-   switch(m_type)
+   //Raul_ added
+   std::cout << "[FAULT_INJECT] INSIDE applyFault (note: fix this line) ******" << std::endl;
+	return;
+   //if(0)
+   //if(Sim()->getMagicServer()->is_approx((UInt64)read_address))
+   for(UInt32 i = 0; i < data_size; ++i)
    {
-      case FAULT_TYPE_TOGGLE:
-         for(UInt32 i = 0; i < data_size; ++i)
-            data[i] ^= fault[i];
-         break;
-      case FAULT_TYPE_SET0:
-         for(UInt32 i = 0; i < data_size; ++i)
-            data[i] &= ~fault[i];
-         break;
-      case FAULT_TYPE_SET1:
-         for(UInt32 i = 0; i < data_size; ++i)
-            data[i] |= fault[i];
-         break;
+      if(Sim()->getMagicServer()->is_approx((UInt64)(read_address+i)))
+      {
+         switch(m_type)
+         {
+            case FAULT_TYPE_TOGGLE:
+               //for(UInt32 i = 0; i < data_size; ++i)
+                  data[i] ^= fault[i];
+               break;
+            case FAULT_TYPE_SET0:
+               //for(UInt32 i = 0; i < data_size; ++i)
+                  data[i] &= ~fault[i];
+               break;
+            case FAULT_TYPE_SET1:
+               //for(UInt32 i = 0; i < data_size; ++i)
+                  data[i] |= fault[i];
+               break;
+         }
+      }
+      //std::cout << "[------] data and fault value are: " << (int)data[0] << "\t " << (int)fault[0] << " " << std::endl;
+      //making fault zero 
+      //Sim()->getFaultinjectionManager()->FaultApplied = true;
    }
+      // for(UInt32 i = 0; i < data_size; i++)
+      //    fault[i] = 0;      
+
 }
+
+
 
 FaultInjector::FaultInjector(UInt32 core_id, MemComponent::component_t mem_component)
    : m_core_id(core_id)
    , m_mem_component(mem_component)
 {
+	//std::cout << "in constructor" << std::endl;
 }
 
-void
-FaultInjector::preRead(IntPtr addr, IntPtr location, UInt32 data_size, Byte *fault, SubsecondTime time)
-{
    // Data at virtual address <addr> is about to be read with size <data_size>.
    // <location> corresponds to the physical location (cache line) where the data lives.
    // Update <fault> here according to errors that have accumulated in this memory location.
+void
+FaultInjector::preRead(IntPtr addr, IntPtr location, UInt32 data_size, Byte *fault, SubsecondTime time)
+{
+	//if(Sim()->getMagicServer()->is_approx((UInt64)addr))
+#if 0
+	if(addr == 134555904 || addr == 134555905)
+		std::cout << "read " << "addr: " << addr  << " data_size: " << data_size << " time: " << time.getNS() << " mem_component: " << MemComponentString(m_mem_component) << std::endl;
+	std::string memstr = (std::string)MemComponentString(m_mem_component);
+	Sim()->getMagicServer()->add_read_acc((UInt64)(addr), 0, memstr, data_size);
+#endif
+	//Sim()->getMagicServer()->add_pure_acc((UInt64)addr,, memstr,true);
+
 }
 
+	//std::cout << "write" << std::endl;
+   // Data at virtual address <addr> has just been written to.
+   // Update <fault> here according to errors that occured during the writing of this memory location.
 void
 FaultInjector::postWrite(IntPtr addr, IntPtr location, UInt32 data_size, Byte *fault, SubsecondTime time)
 {
-   // Data at virtual address <addr> has just been written to.
-   // Update <fault> here according to errors that occured during the writing of this memory location.
+	//Sim()->getMagicServer()->add_pure_acc((UInt64)addr,, memstr,false);
+	//if(Sim()->getMagicServer()->is_approx((UInt64)addr))
+#if 0		
+	if(addr == 134555904 || addr == 134555905)
+		std::cout << "writ " << "addr: " << addr  << " data_size: " << data_size << " time: " << time.getNS() << " mem_component: " << MemComponentString(m_mem_component) << std::endl;
+	std::string memstr = (std::string)MemComponentString(m_mem_component);
+	Sim()->getMagicServer()->add_write_acc((UInt64)(addr), 0, memstr, data_size);
+#endif	
+
+	
+
 }

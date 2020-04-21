@@ -1,6 +1,16 @@
 #include "simulator.h"
 #include "cache.h"
 #include "log.h"
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <string>
+#include "magic_server.h"
+
+//#include "Raul.h"
+#define ENABLE_RAUL_CACHELOG
+
+
 
 // Cache class
 // constructors/destructors
@@ -24,6 +34,9 @@ Cache::Cache(
    m_cache_type(cache_type),
    m_fault_injector(fault_injector)
 {
+   Raul_core_id = core_id;
+   Raul_cache_type = cache_type;
+   Raul_name = name;
    m_set_info = CacheSet::createCacheSetInfo(name, cfgname, core_id, replacement_policy, m_associativity);
    m_sets = new CacheSet*[m_num_sets];
    for (UInt32 i = 0; i < m_num_sets; i++)
@@ -36,6 +49,8 @@ Cache::Cache(
    for (UInt32 i = 0; i < m_num_sets; i++)
       m_set_usage_hist[i] = 0;
    #endif
+
+
 }
 
 Cache::~Cache()
@@ -80,8 +95,10 @@ Cache::invalidateSingleLine(IntPtr addr)
    return m_sets[set_index]->invalidate(tag);
 }
 
-CacheBlockInfo*
-Cache::accessSingleLine(IntPtr addr, access_t access_type,
+
+
+CacheBlockInfo*		//me: seems that the block is already present in the cache and then we wanna read and write it
+Cache::accessSingleLine(IntPtr addr, access_t access_type,		//me: check out returning NULL
       Byte* buff, UInt32 bytes, SubsecondTime now, bool update_replacement)
 {
    //assert((buff == NULL) == (bytes == 0));
@@ -96,27 +113,51 @@ Cache::accessSingleLine(IntPtr addr, access_t access_type,
    CacheSet* set = m_sets[set_index];
    CacheBlockInfo* cache_block_info = set->find(tag, &line_index);
 
-   if (cache_block_info == NULL)
-      return NULL;
 
+   if (cache_block_info == NULL)		//addres is not valid in relative set -> miss
+      return NULL;
+	
    if (access_type == LOAD)
    {
+
+      #ifdef ENABLE_RAUL_CACHELOG
+      std::string str = Raul_name.c_str();
+	  Sim()->getMagicServer()->add_read_acc((UInt64)addr, Raul_core_id,str,m_blocksize);
+	  //Sim()->getMagicServer()->add_pure_acc((UInt64)addr,Raul_core_id, str,true);
+	  //for (unsigned int i=0; i<m_blocksize;i++)
+		//Sim()->getMagicServer()->add_read_acc((UInt64)addr+i, Raul_core_id,str,m_blocksize);
+      #endif
+	  
+	  //if((UInt64)addr % 64 != 0)
+		//  std::cout << "not block address" << std::endl;
+
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead
       if (m_fault_injector)
          m_fault_injector->preRead(addr, set_index * m_associativity + line_index, bytes, (Byte*)m_sets[set_index]->getDataPtr(line_index, block_offset), now);
 
       set->read_line(line_index, block_offset, buff, bytes, update_replacement);
+    
    }
    else
    {
-      set->write_line(line_index, block_offset, buff, bytes, update_replacement);
+       
+      #ifdef ENABLE_RAUL_CACHELOG
+      std::string str = Raul_name.c_str();
+	  Sim()->getMagicServer()->add_write_acc((UInt64)addr, Raul_core_id,str,m_blocksize);
+	  //Sim()->getMagicServer()->add_pure_acc((UInt64)addr, Raul_core_id,str,false);
+	  //for (unsigned int i=0; i<m_blocksize;i++)
+		//Sim()->getMagicServer()->add_write_acc((UInt64)addr+i, Raul_core_id,str,m_blocksize);
+      #endif
 
+      set->write_line(line_index, block_offset, buff, bytes, update_replacement);
+      
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead
       if (m_fault_injector)
          m_fault_injector->postWrite(addr, set_index * m_associativity + line_index, bytes, (Byte*)m_sets[set_index]->getDataPtr(line_index, block_offset), now);
+
    }
 
-   return cache_block_info;
+   return cache_block_info; 
 }
 
 void
@@ -136,6 +177,8 @@ Cache::insertSingleLine(IntPtr addr, Byte* fill_buff,
          eviction, evict_block_info, evict_buff, cntlr);
    *evict_addr = tagToAddress(evict_block_info->getTag());
 
+   // a memlog must be added here
+   
    if (m_fault_injector) {
       // NOTE: no callback is generated for read of evicted data
       UInt32 line_index = -1;
@@ -144,6 +187,7 @@ Cache::insertSingleLine(IntPtr addr, Byte* fill_buff,
 
       m_fault_injector->postWrite(addr, set_index * m_associativity + line_index, m_sets[set_index]->getBlockSize(), (Byte*)m_sets[set_index]->getDataPtr(line_index, 0), now);
    }
+
 
    #ifdef ENABLE_SET_USAGE_HIST
    ++m_set_usage_hist[set_index];
@@ -154,7 +198,7 @@ Cache::insertSingleLine(IntPtr addr, Byte* fill_buff,
 
 
 // Single line cache access at addr
-CacheBlockInfo*
+CacheBlockInfo*		//me: returning cacheBlockInfo if the address is present in cache
 Cache::peekSingleLine(IntPtr addr)
 {
    IntPtr tag;

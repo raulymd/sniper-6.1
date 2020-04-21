@@ -12,8 +12,11 @@
 #include "config.hpp"
 #include "distribution.h"
 #include "topology_info.h"
+#include "magic_server.h"
 
 #include <algorithm>
+
+#define ONCE(AAAA) { static bool once(true); if(once){ once = false; AAAA}}
 
 #if 0
    extern Lock iolock;
@@ -423,25 +426,65 @@ MemoryManager::coreInitiateMemoryAccess(
       Byte* data_buf, UInt32 data_length,
       Core::MemModeled modeled)
 {
+	/*
+	if(mem_component == MemComponent::L2_CACHE)			//NEVER
+		std::cout << "L2 directly!!!" << std::endl;
+	if(mem_component == MemComponent::L3_CACHE)			//NEVER
+		std::cout << "L3 directly!!!" << std::endl;
+	if(mem_component == MemComponent::DRAM)				//NEVER
+		std::cout << "DRAM directly!!!" << std::endl;
+	*/
+	//static int cnter(0);
+	//std::cout << cnter << ": " << address<< std::endl;
+	//cnter++;
+	std::string mem_op_str = mem_op_type==Core::READ ? "READ" : mem_op_type==Core::WRITE ? "WRITE" : "OTHERS"; 
+	//if(Sim()->getMagicServer()->is_approx((UInt64)address))
+#if 0		
+	if(address+offset == 134520980 || address+offset == 134555905)
+		std::cout << "--- coreInitiateMemoryAccess address: " << address << "+" << offset  << " data_size: " <<  data_length <<  " mem_component: " << MemComponentString(mem_component) << " mem_op_type: " << mem_op_str  << std::endl;
+#endif	
+   // BOTH fault and fast enter here
+   //RAUL
    LOG_ASSERT_ERROR(mem_component <= m_last_level_cache,
       "Error: invalid mem_component (%d) for coreInitiateMemoryAccess", mem_component);
-
    if (mem_component == MemComponent::L1_ICACHE && m_itlb)
+   {
       accessTLB(m_itlb, address, true, modeled);
+	  
+   }
    else if (mem_component == MemComponent::L1_DCACHE && m_dtlb)
       accessTLB(m_dtlb, address, false, modeled);
 
-   return m_cache_cntlrs[mem_component]->processMemOpFromCore(
+	//RAUL -> enabling memory footprint extraction
+    if(Sim()->getCfg()->getBoolDefault("mem_footprint/enable",false))
+    {    
+        ONCE(std::cout << "[SNIPER] Memory footprint extraction enabled" << std::endl;)    
+    }
+	HitWhere::where_t retval;
+    retval = m_cache_cntlrs[mem_component]->processMemOpFromCore( 
          lock_signal,
          mem_op_type,
          address, offset,
          data_buf, data_length,
-         modeled == Core::MEM_MODELED_NONE || modeled == Core::MEM_MODELED_COUNT ? false : true,
+         modeled == Core::MEM_MODELED_NONE || modeled == Core::MEM_MODELED_COUNT ? false : true,		// no relevance
          modeled == Core::MEM_MODELED_NONE ? false : true);
+    if(Sim()->getCfg()->getBoolDefault("mem_footprint/enable",false))
+    {
+        if((mem_op_type == Core::READ || mem_op_type == Core::READ_EX) && mem_component == MemComponent::L1_DCACHE)
+		{
+            Sim()->getMagicServer()->upsave_cnters((UInt64)address+offset,data_length);
+			Sim()->getMagicServer()->reset_cnters((UInt64)address+offset,data_length);		// no displacement difference			
+		}
+    }
+#if 0		
+	if(address+offset == 134555904 || address+offset == 134555905)
+		std::cout << "--- returned " << std::endl;
+#endif
+	return retval;
 }
 
-void
-MemoryManager::handleMsgFromNetwork(NetPacket& packet)
+void 
+MemoryManager::handleMsgFromNetwork(NetPacket& packet) 
 {
 MYLOG("begin");
    core_id_t sender = packet.sender;

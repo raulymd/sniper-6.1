@@ -1,5 +1,6 @@
 #include "cache_set.h"
 #include "cache_set_lru.h"
+#include "cache_set_lru2.h"	//RAUL
 #include "cache_set_mru.h"
 #include "cache_set_nmru.h"
 #include "cache_set_nru.h"
@@ -12,6 +13,9 @@
 #include "simulator.h"
 #include "config.h"
 #include "config.hpp"
+#include <iostream>
+#include "magic_server.h"	//RAUL
+#include "math.h"
 
 CacheSet::CacheSet(CacheBase::cache_t cache_type,
       UInt32 associativity, UInt32 blocksize):
@@ -100,7 +104,19 @@ CacheSet::insert(CacheBlockInfo* cache_block_info, Byte* fill_buff, bool* evicti
 {
    // This replacement strategy does not take into account the fact that
    // cache blocks can be voluntarily flushed or invalidated due to another write request
+   // RAUL
+   IntPtr addr = cache_block_info->getTag() << (int)log2(m_blocksize);
+   if(Sim()->getMagicServer()->is_block_approx((UInt64)addr,m_blocksize))
+   {
+	   //std::cout << "addr: " << addr << std::endl;		//no absolute way to test the method :/
+	   m_approx_flag = true;
+   }
+   else 
+	   m_approx_flag = false;
+
    const UInt32 index = getReplacementIndex(cntlr);
+   m_approx_flag = false;
+	
    assert(index < m_associativity);
 
    assert(eviction != NULL);
@@ -146,6 +162,8 @@ CacheSet::createCacheSet(String cfgname, core_id_t core_id,
       case CacheBase::LRU:
       case CacheBase::LRU_QBS:
          return new CacheSetLRU(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoLRU*>(set_info), getNumQBSAttempts(policy, cfgname, core_id));
+      case CacheBase::LRU2:	//RAUL
+         return new CacheSetLRU2(cache_type, associativity, blocksize);
 
       case CacheBase::NRU:
          return new CacheSetNRU(cache_type, associativity, blocksize);
@@ -183,6 +201,7 @@ CacheSet::createCacheSetInfo(String name, String cfgname, core_id_t core_id, Str
    {
       case CacheBase::LRU:
       case CacheBase::LRU_QBS:
+	  case CacheBase::LRU2:
       case CacheBase::SRRIP:
       case CacheBase::SRRIP_QBS:
          return new CacheSetInfoLRU(name, cfgname, core_id, associativity, getNumQBSAttempts(policy, cfgname, core_id));
@@ -211,6 +230,8 @@ CacheSet::parsePolicyType(String policy)
       return CacheBase::ROUND_ROBIN;
    if (policy == "lru")
       return CacheBase::LRU;
+   if (policy == "lru2")
+      return CacheBase::LRU2;		//RAUL
    if (policy == "lru_qbs")
       return CacheBase::LRU_QBS;
    if (policy == "nru")

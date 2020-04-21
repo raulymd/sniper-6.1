@@ -16,6 +16,7 @@
 #include "req_queue_list_template.h"
 #include "stats.h"
 #include "subsecond_time.h"
+#include "shmem_perf.h"
 
 #include "boost/tuple/tuple.hpp"
 
@@ -151,7 +152,7 @@ namespace ParametricDramDirectoryMSI
          Cache* m_cache;
          Lock m_cache_lock;
          Lock m_smt_lock; //< Only used in L1 cache, to protect against concurrent access from sibling SMT threads
-         CacheCntlrList m_prev_cache_cntlrs;
+         CacheCntlrList m_prev_cache_cntlrs;	// a vector list of all cache controllers
          Prefetcher* m_prefetcher;
          DramCntlrInterface* m_dram_cntlr;
          ContentionModel* m_dram_outstanding_writebacks;
@@ -200,6 +201,19 @@ namespace ParametricDramDirectoryMSI
    class CacheCntlr : ::CacheCntlr
    {
       private:
+
+
+         //Raul added codes for time average of approx data
+         UInt64 st_time;		//one start time assumed for two sets
+		 bool st_once;
+         UInt32 m_cache_size;
+		 UInt64 last_insert_time, last_insert_time_2;
+         float approx_ratio_ovtime,approx_ratio_ovtime_2;
+         float last_approx_ratio,last_approx_ratio_2;
+		 std::set<IntPtr> approx_addrs_in_cache,approx_addrs_in_cache_2;
+			
+
+
          // Data Members
          MemComponent::component_t m_mem_component;
          MemoryManager* m_memory_manager;
@@ -215,6 +229,15 @@ namespace ParametricDramDirectoryMSI
          bool m_l1_mshr;
 
          struct {
+            //Raul
+            UInt64 approx_loads, approx_stores; 
+            UInt64 approx_load_misses, approx_store_misses;
+            UInt64 approx_ratio;
+			//Raul_2
+            UInt64 approx_loads_2, approx_stores_2; 
+            UInt64 approx_load_misses_2, approx_store_misses_2;
+            UInt64 approx_ratio_2;
+			
            UInt64 loads, stores;
            UInt64 load_misses, store_misses;
            UInt64 load_overlapping_misses, store_overlapping_misses;
@@ -270,6 +293,7 @@ namespace ParametricDramDirectoryMSI
          ShmemPerf* m_shmem_perf_global;
          SubsecondTime m_shmem_perf_totaltime;
          UInt64 m_shmem_perf_numrequests;
+         ShmemPerf m_dummy_shmem_perf;
 
          ShmemPerfModel* m_shmem_perf_model;
 
